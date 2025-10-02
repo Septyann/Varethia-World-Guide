@@ -1,0 +1,761 @@
+<!-- Chosen Palette: Antique Map & Scroll -->
+<!-- Application Structure Plan: Tab-based SPA with five primary thematic sections (Character, Geography, Guild, Progression, Combat) focusing on non-linear exploration. The layout utilizes a left-side interactive navigation and a main content area for dynamic data visualization (Chart.js) and detail display (HTML expansion/collapse), optimized for mobile viewing via flex-wrap and responsive grid. The structure is designed for ease of synthesis by grouping all related lore into single, explorable views. -->
+<!-- Visualization & Content Choices: Geography -> Goal: Organize/Inform -> Viz: Detailed Card List -> Interaction: Scroll, Tab Switching -> Justification: Textual density requires clear categorization. Progression -> Goal: Organize/Compare -> Viz: Collapsible List/HTML Tables/Chart.js Radar/Network (simulated via HTML structure) -> Interaction: Collapsible sections, dynamic selection for trials (Gemini) -> Justification: Clarifies complex evolution paths and requirements. Guild -> Goal: Inform/Compare -> Viz: Key Stats/Horizontal Bar Chart -> Interaction: Click Chart Bar for detailed rank description -> Justification: Converts hierarchy into an immediate, engaging interaction. All visualization uses Chart.js Canvas; NO SVG/Mermaid used. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panduan Dunia Varethia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #3d3127; /* Coklat Tua (Teks) */
+            --color-secondary: #9c8a74; /* Coklat Sedang (Aksen) */
+            --color-background: #fdfaf5; /* Krem Peta */
+            --color-card: #f5eedb; /* Kertas Kuning */
+            --color-accent: #b87333; /* Emas Tembaga */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-primary);
+        }
+        h1, h2, h3 {
+            font-family: 'Cinzel', serif;
+            color: var(--color-primary);
+        }
+        .tab-button {
+            transition: all 0.2s ease-in-out;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button.active {
+            border-color: var(--color-accent);
+            background-color: var(--color-card);
+            color: var(--color-primary);
+            font-weight: 700;
+        }
+        .card-panel {
+            background-color: var(--color-card);
+            border: 1px solid var(--color-secondary);
+            box-shadow: 4px 4px 0px 0px rgba(61, 49, 39, 0.2);
+        }
+        .chart-container {
+            position: relative; 
+            width: 100%; 
+            max-width: 700px;
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 350px; 
+            max-height: 400px;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 0.5rem;
+        }
+        .expandable-header {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .expandable-header:hover {
+            background-color: rgba(156, 138, 116, 0.1);
+        }
+        .job-evolution-card {
+            background-color: var(--color-card);
+            transition: transform 0.1s ease;
+        }
+        .job-evolution-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 2px 2px 5px rgba(61, 49, 39, 0.3);
+        }
+        .role-tag {
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+        .role-fighter { background-color: #fca5a5; color: #7f1d1d; } /* Merah */
+        .role-stealth { background-color: #a5f3fc; color: #164e63; } /* Biru Muda */
+        .role-magic { background-color: #c4b5fd; color: #4c1d95; } /* Ungu */
+        .role-support { background-color: #a7f3d0; color: #065f46; } /* Hijau */
+        .role-hybrid { background-color: #fde68a; color: #78350f; } /* Emas */
+        
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/90 shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-3xl font-bold tracking-tight text-primary-dark" style="color: var(--color-primary);">Varethia World Anvil</h1>
+            <div id="tab-navigation" class="mt-4 md:mt-0 flex flex-wrap justify-center space-x-2 md:space-x-4">
+                <button class="tab-button active p-2" data-tab="karakter">👤 Karakter Utama</button>
+                <button class="tab-button p-2" data-tab="dunia">🌍 Dunia & Geografi</button>
+                <button class="tab-button p-2" data-tab="guild">🏛️ Sistem Guild</button>
+                <button class="tab-button p-2" data-tab="progresi">📜 Progresi Karakter</button>
+                <button class="tab-button p-2" data-tab="tempur">⚔️ Sistem Tempur</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto p-4 sm:p-8">
+
+        <!-- Tab: Karakter Utama -->
+        <section id="karakter" class="tab-content">
+            <h2 class="text-4xl mb-6 text-center" style="color: var(--color-primary);">Karakter Utama Varethia</h2>
+            <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-secondary-dark">Jelajahi para pahlawan dan tokoh legendaris yang menjadi pilar cerita di Varethia. Setiap tokoh memiliki peran dan kompleksitas unik, membentuk narasi epik dunia ini.</p>
+            <div id="character-cards-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Data Karakter dimuat di sini oleh JS -->
+            </div>
+        </section>
+
+        <!-- Tab: Dunia & Geografi -->
+        <section id="dunia" class="tab-content hidden">
+            <h2 class="text-4xl mb-6 text-center" style="color: var(--color-primary);">🌍 Struktur Geografis & Budaya Dunia Varethia</h2>
+            <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-secondary-dark">Varethia, sebuah dunia yang terbagi menjadi tiga benua utama, di mana setiap daratan memiliki sejarah, ras dominan, dan sistem kepercayaan yang unik. Struktur ini menentukan jalur perdagangan, konflik, dan fokus kekuatan sihir atau militer global.</p>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                <!-- Benua Barat -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 text-primary-dark">Benua Barat (Gaya Eropa)</h3>
+                    <p class="text-sm mb-4">Pusat kekuasaan politik, gereja, dan akademi sihir klasik. Struktur pemerintahan formal dan intrik politik adalah ciri khasnya.</p>
+                    <ul class="space-y-3">
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Barat Utara (Nordik):</strong> Kerajaan pejuang, mitos makhluk musim dingin.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Barat Tengah (Prancis/Jerman):</strong> Pusat Kekaisaran, Akademi Sihir, Gereja Dominan.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Barat Selatan (Mediterania):</strong> Kota pelabuhan, pusat perdagangan dan seni tinggi.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Barat Timur (Balkan/Bizantium):</strong> Daerah perbatasan konflik dan perdagangan lintas-benua.</li>
+                    </ul>
+                </div>
+                <!-- Benua Tengah -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 text-primary-dark">Benua Tengah (Gaya Timur Tengah / Ottoman)</h3>
+                    <p class="text-sm mb-4">Tanah gurun luas dan dataran subur. Kaya akan sihir kuno, artefak tersembunyi, dan jalur perdagangan legendaris.</p>
+                    <ul class="space-y-3">
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Middle Point (Padang Pasir):</strong> Gurun luas, kota oasis, reruntuhan peradaban kuno seperti Mesir & Babilonia.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Tengah Selatan (Lembah Subur):</strong> Basis pertanian, peradaban tua, pusat filsafat dan budaya air.</li>
+                    </ul>
+                </div>
+                <!-- Benua Timur -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 text-primary-dark">Benua Timur (Gaya Asia)</h3>
+                    <p class="text-sm mb-4">Dipimpin oleh Kaisaran besar dengan fokus pada disiplin spiritual, bela diri, dan harmoni alam. Dunia klan dan kerajaan maritim.</p>
+                    <ul class="space-y-3">
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Pulau Besar (Tiongkok/Jepang/Korea):</strong> Kaisaran, sistem klan kuno, fokus sihir spiritual dan bela diri.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Pulau Selatan Tropis (Asia Tenggara):</strong> Kerajaan maritim, perdagangan rempah, wilayah bajak laut.</li>
+                        <li class="p-3 bg-white rounded-md border border-secondary/30"><strong style="color: var(--color-accent);">Pulau Utara (Nomaden Asia Tengah):</strong> Beriklim sedang/dingin, budaya nomaden, fokus pada binatang buas dan kuda.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Pilar Lore Global -->
+            <div class="card-panel rounded-lg p-6 mt-12">
+                <h3 class="text-2xl mb-4 text-primary-dark border-b border-secondary pb-2">Pilar Utama Dunia (Global Lore)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Agama & Mitos:</h4>
+                        <p class="text-sm">Setiap benua memiliki sistem kepercayaan yang berbeda, namun mitologi global seringkali saling terkait, memandang dewa yang sama melalui lensa budaya yang berbeda (misalnya, Dewa Cahaya memiliki wajah Ksatria di Barat dan Sage di Timur).</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Perdagangan & Konflik:</h4>
+                        <p class="text-sm">Jalur perdagangan laut dan darat adalah sumber konflik utama. Jalur legendaris melintasi Benua Tengah menjadi titik panas diplomasi dan perang dagang, membentuk aliansi dan permusuhan global.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Ras & Adaptasi Budaya:</h4>
+                        <p class="text-sm">Ras fantasi (Elf, Dwarf, Orc, dll.) tersebar dan beradaptasi secara budaya. Elf mungkin memiliki gaya Jepang di Timur, sementara Dwarf Padang Pasir di Tengah berfokus pada arsitektur terowongan bawah tanah untuk menghadapi panas ekstrem.</p>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold mb-2">Spire: Peninggalan Kuno:</h4>
+                        <p class="text-sm">Total 8 Spire, menara peninggalan para ahli masa lalu yang berisi sihir dan ilmu pengetahuan. Lokasi: 3 di Barat, 2 di Tengah, 3 di Timur. Spire adalah tujuan utama bagi para petualang kelas A ke atas.</p>
+                    </div>
+                </div>
+                <!-- Gemini Spire Generator -->
+                <div class="mt-8 pt-4 border-t border-secondary/50">
+                    <h4 class="text-xl font-semibold mb-3">✨ Generator Lore Spire Kuno</h4>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <select id="spire-continent-select" class="flex-grow p-2 rounded-md border border-secondary/50 bg-white shadow-inner">
+                            <option value="Barat">Benua Barat</option>
+                            <option value="Tengah">Benua Tengah</option>
+                            <option value="Timur">Benua Timur</option>
+                        </select>
+                        <button id="generate-spire-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition shadow">
+                            Buat Deskripsi Spire
+                        </button>
+                    </div>
+                    <div id="spire-result" class="mt-4 p-4 card-panel rounded-lg hidden">
+                        <p class="text-sm italic">Hasil dari Gemini akan muncul di sini.</p>
+                    </div>
+                    <div id="loading-spire" class="mt-4 text-center hidden">
+                        <p class="text-sm text-secondary">Membuat misteri kuno... ⏳</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Sistem Guild -->
+        <section id="guild" class="tab-content hidden">
+            <h2 class="text-4xl mb-6 text-center" style="color: var(--color-primary);">🏛️ Sistem Guild Varethia (Pemerintahan Netral)</h2>
+            <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-secondary-dark">Guild di Varethia bertindak sebagai otoritas netral global, meregulasi semua petualang independen. Ia adalah pemerintahan mandiri yang mengatur ekonomi, hukum, dan keamanan petualang di seluruh benua.</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <!-- Struktur Pemerintahan -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Struktur Pemerintahan & Fungsi</h3>
+                    <div class="space-y-4">
+                        <p><strong style="color: var(--color-accent);">High Council</strong>: Dewan tertinggi, menetapkan kebijakan dan aturan global.</p>
+                        <p><strong style="color: var(--color-accent);">Grand Guildmaster</strong>: Pemimpin eksekutif yang mengawasi operasional global.</p>
+                        <p><strong style="color: var(--color-accent);">Adventurer's Tribunal</strong>: Badan hukum internal untuk menyelesaikan konflik dan menegakkan kode etik.</p>
+                        <p><strong style="color: var(--color-accent);">Otoritas Netral</strong>: Berhak menolak misi yang melanggar kode etik; tidak berpihak pada kerajaan, tetapi beroperasi di dalamnya.</p>
+                        <p><strong style="color: var(--color-accent);">Pusat Ekonomi</strong>: Mengelola pasar netral, lelang artefak, dan kontrak lintas-benua.</p>
+                    </div>
+                </div>
+                <!-- Kode Etik dan Hukum -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Hukum & Kode Etik Guild</h3>
+                    <ul class="list-disc list-inside space-y-2 text-sm pl-4">
+                        <li><strong class="text-red-700">Larangan Pengkhianatan:</strong> Anggota yang melanggar akan diburu oleh Enforcer Corps/Hunter Division.</li>
+                        <li><strong class="text-green-700">Netralitas:</strong> Guild tidak boleh berpihak dalam konflik antar kerajaan.</li>
+                        <li><strong class="text-green-700">Perlindungan Sipil:</strong> Dilarang menyerang warga sipil tanpa alasan sah.</li>
+                        <li><strong class="text-green-700">Kontrak Mutlak:</strong> Misi yang diterima harus diselesaikan, kecuali ada kondisi yang tidak terduga.</li>
+                        <li><strong class="text-green-700">Kebebasan Petualang:</strong> Tidak ada paksaan untuk tetap bergabung dengan Guild.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Sistem Rank -->
+            <div class="card-panel rounded-lg p-6 mb-12">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Sistem Rank & Otoritas Petualang</h3>
+                <p class="text-sm mb-4">Peringkat menentukan akses misi, sumber daya, dan otoritas. Klik bar pada grafik untuk melihat deskripsi detail Rank.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Chart Rank -->
+                    <div class="chart-container">
+                        <canvas id="rank-chart"></canvas>
+                    </div>
+                    <!-- Detail Rank -->
+                    <div class="p-4 bg-white rounded-lg shadow-inner">
+                        <h4 id="rank-detail-title" class="text-xl font-bold mb-2" style="color: var(--color-accent);">SS-Rank: Legenda Absolut</h4>
+                        <p id="rank-detail-description" class="text-sm">Individu luar biasa yang kekuatannya bisa mengubah sejarah dunia. Otoritasnya melampaui Grand Guildmaster dalam lingkup spiritual dan politik. Mereka adalah manifestasi kekuatan epik.</p>
+                        <p id="rank-detail-access" class="text-xs mt-2 italic">Akses Misi: Misi Rahasia Global, Penguasaan Spire.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Variasi Budaya Benua -->
+            <div class="card-panel rounded-lg p-6">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Sistem Guild di Setiap Benua</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 text-sm">
+                    <div class="bg-white p-4 rounded-md border border-secondary/30">
+                        <h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">1. Benua Barat</h4>
+                        <p>Birokrasi formal dan aristokratis. Memiliki Council of Masters. Bekerja sama erat dengan kerajaan, tetapi menjaga independensi peraturan secara ketat.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md border border-secondary/30">
+                        <h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">2. Benua Tengah</h4>
+                        <p>Lebih fleksibel, beroperasi seperti konfederasi dagang-militer. Mengutamakan sistem barter. Netralitas ketat untuk menyeimbangkan kerajaan padang pasir yang sering berperang.</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md border border-secondary/30">
+                        <h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">3. Benua Timur</h4>
+                        <p>Birokrasi kekaisaran dengan disiplin tinggi. Uji kompetensi peringkat sangat ketat. Berpengaruh besar dalam pengembangan seni bela diri dan eksorsisme lokal.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Progresi Karakter -->
+        <section id="progresi" class="tab-content hidden">
+            <h2 class="text-4xl mb-6 text-center" style="color: var(--color-primary);">📜 Sistem Progresi Job & Class Varethia</h2>
+            <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-secondary-dark">Sistem kelas terbagi menjadi empat tingkatan (Tier) utama. Setiap evolusi Job adalah pencapaian signifikan yang memerlukan kombinasi Level, Ujian (Trials), dan bimbingan khusus, secara permanen membentuk peran karakter Anda.</p>
+            
+            <!-- Tier Level Table -->
+            <div class="card-panel rounded-lg p-6 mb-8">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">1. Struktur Level dan Tingkatan Job</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-md text-sm">
+                        <thead class="bg-secondary/20">
+                            <tr>
+                                <th class="p-3 text-left">Tier Job</th>
+                                <th class="p-3 text-left">Level Minimum</th>
+                                <th class="p-3 text-left">Deskripsi</th>
+                                <th class="p-3 text-left">Persyaratan Evolusi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b">
+                                <td class="p-3 font-semibold text-green-700">Basic Class</td>
+                                <td class="p-3">Lv 1 - 30</td>
+                                <td class="p-3">Job dasar yang mudah dipelajari, fondasi dari semua jalur. Level ini mewakili pelatihan dasar dan penemuan afinitas.</td>
+                                <td class="p-3">-</td>
+                            </tr>
+                            <tr class="border-b">
+                                <td class="p-3 font-semibold text-blue-700">Advanced Class</td>
+                                <td class="p-3">Lv 30 - 60</td>
+                                <td class="p-3">Evolusi Job yang lebih spesifik, menawarkan spesialisasi *skill* dan keunggulan unik. Level 30 adalah titik krusial penentuan jalur karier awal.</td>
+                                <td class="p-3">Selesaikan **Quest Class Advancement** (ujian formal).</td>
+                            </tr>
+                            <tr class="border-b">
+                                <td class="p-3 font-semibold text-purple-700">Master Class</td>
+                                <td class="p-3">Lv 60 - 90</td>
+                                <td class="p-3">Tingkat keahlian tinggi, menguasai aspek tertentu dengan kemampuan khusus yang sangat kuat. Mencapai level ini berarti menjadi seorang ahli yang diakui di bidangnya.</td>
+                                <td class="p-3">Selesaikan **Elite Trials** dan dapatkan bimbingan **NPC Master**.</td>
+                            </tr>
+                            <tr>
+                                <td class="p-3 font-semibold text-yellow-700">Legendary Class</td>
+                                <td class="p-3">Lv 90 - 100+</td>
+                                <td class="p-3">Job langka tingkat dewa, anomali yang kekuatannya dapat mengubah takdir dunia. Membutuhkan pengorbanan besar.</td>
+                                <td class="p-3">Selesaikan **Mythical Trials** dan **Quest Rahasia** (melibatkan transformasi permanen).</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Evolusi Job (Advancement) Details -->
+            <div class="card-panel rounded-lg p-6 mb-8">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">2. Mekanisme Evolusi Job (Advancement)</h3>
+                <div class="space-y-4 text-sm">
+                    <p><strong>Basic → Advanced:</strong> Quest ini dirancang untuk menguji pemahaman dasar karakter terhadap jalur yang dipilih. Contoh: calon **Knight** ditugaskan mempertahankan benteng.</p>
+                    <p><strong>Advanced → Master:</strong> Ujian ini menguji bukan hanya kekuatan, tetapi juga kecerdasan dan kebijaksanaan. Calon **Warmaster** mungkin harus mengalahkan master senjata lain dalam duel, sementara calon **Time Weaver** harus memecahkan teka-teki temporal di dalam Spire kuno.</p>
+                    <p><strong>Master → Legendary:</strong> Ujian bersifat monumental, terkait langsung dengan lore dunia, seperti menempa kembali senjata dewa yang hilang. Contoh: **Lich King** yang berevolusi menjadi **Void Sovereign** mungkin akan kehilangan sisa kemanusiaannya.</p>
+                    <p><strong>Mekanisme Tambahan:</strong> Termasuk **Job Hybrid** (kombinasi dua job setelah Lv 50), **Hidden Classes** (didapat dari artefak/restu entitas), dan **Skill Evolution** (transformasi fungsional skill di Master Class).</p>
+                </div>
+            </div>
+            
+            <!-- Job Evolution Table (Simplified View) -->
+            <div class="card-panel rounded-lg p-6 mb-8">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">3. Jalur Kelas Utama (Skill Tree Synthesis)</h3>
+                <p class="text-sm italic mb-4">Ringkasan jalur evolusi dari Basic hingga Legendary Class.</p>
+                <div id="job-evolution-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Data Job dimuat di sini oleh JS -->
+                </div>
+            </div>
+            
+            <!-- Gemini Trial Generator -->
+            <div class="card-panel rounded-lg p-6">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">✨ Generator Ujian Evolusi Job Khusus</h3>
+                <p class="text-sm mb-4">Gunakan Gemini untuk membuat skenario Ujian Evolusi yang unik dan menantang untuk transisi Job tertentu.</p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <select id="trial-basic-select" class="flex-grow p-2 rounded-md border border-secondary/50 bg-white shadow-inner">
+                        <option value="Warrior">Warrior</option>
+                        <option value="Mage">Mage</option>
+                        <option value="Thief">Thief</option>
+                        <option value="Cleric">Cleric</option>
+                    </select>
+                    <select id="trial-target-select" class="flex-grow p-2 rounded-md border border-secondary/50 bg-white shadow-inner">
+                        <option value="Knight">Knight (Advanced)</option>
+                        <option value="Elementalist">Elementalist (Advanced)</option>
+                        <option value="Blood Titan">Blood Titan (Master)</option>
+                        <option value="Void Sovereign">Void Sovereign (Legendary)</option>
+                    </select>
+                    <button id="generate-trial-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition shadow">
+                        Buat Ujian Spesifik
+                    </button>
+                </div>
+                <div id="trial-result" class="mt-4 p-4 card-panel rounded-lg hidden">
+                    <p class="text-sm italic">Hasil Ujian Evolusi dari Gemini akan muncul di sini.</p>
+                </div>
+                <div id="loading-trial" class="mt-4 text-center hidden">
+                    <p class="text-sm text-secondary">Menciptakan tantangan epik... ⏳</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Sistem Tempur -->
+        <section id="tempur" class="tab-content hidden">
+            <h2 class="text-4xl mb-6 text-center" style="color: var(--color-primary);">⚔️ Mekanika Tempur & Sistem Sihir Varethia</h2>
+            <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-secondary-dark">Eksplorasi sistem tempur Varethia, mulai dari penggunaan sihir Arcane, metode pembelajaran, hingga perpaduan Job Hybrid yang kompleks di medan perang.</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <!-- Pembelajaran Sihir -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Sistem Pembelajaran Sihir Arcane</h3>
+                    <p class="text-sm mb-4">Pengguna sihir memiliki dua jalur utama untuk mendapatkan kekuatan, masing-masing dengan risiko dan *cost* yang berbeda.</p>
+                    <div class="flex space-x-4 mb-4">
+                        <button id="toggle-mentor" class="bg-secondary/30 text-primary-dark font-bold py-2 px-4 rounded-md hover:bg-secondary/50 transition">Jalur Mentor (Aman)</button>
+                        <button id="toggle-codex" class="bg-secondary/30 text-primary-dark font-bold py-2 px-4 rounded-md hover:bg-secondary/50 transition">Jalur Codex (Berisiko)</button>
+                    </div>
+                    <div id="learning-detail" class="bg-white p-4 rounded-md shadow-inner text-sm">
+                        <!-- Default view: Mentor -->
+                        <h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">Jalur Mentor (Akademi/Guru)</h4>
+                        <p>Pembelajaran bertahap, aman, dan terstruktur. Mengurangi risiko kegilaan atau cedera sihir. Namun, perkembangan *skill* dibatasi oleh pengetahuan mentor.</p>
+                    </div>
+                </div>
+                <!-- Job Hybrid Chart -->
+                <div class="card-panel rounded-lg p-6">
+                    <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Job Hybrid: Keseimbangan Sumber Daya</h3>
+                    <p class="text-sm mb-4">Job Hybrid memerlukan manajemen sumber daya yang kompleks. Grafik ini menunjukkan pentingnya keseimbangan antara empat sumber daya utama.</p>
+                    <div class="chart-container h-80 max-h-80">
+                        <canvas id="hybrid-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tipe Pengguna Sihir Tambahan -->
+            <div class="card-panel rounded-lg p-6">
+                <h3 class="text-2xl mb-4 border-b pb-2" style="border-color: var(--color-secondary);">Tipe Pengguna Sihir Tambahan (Sub-Affinity)</h3>
+                <p class="text-sm mb-4">Selain Mage Class utama, terdapat 20 sub-afinitas sihir unik yang memperkaya sistem tempur.</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 text-sm">
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Rune Master</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Blood Mage</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Abyss Knight</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Dark Knight</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Paladin</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Calligrapher</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Bladedancer</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Mystic Archer</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Firecaller</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Mystic Healer</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Holy Priest</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Strategist</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Weapon Master</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Wind Assassin</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Seer</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Oracle</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Beastkin Skill</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Shadow Caster</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Arcane Sentinel</span>
+                    <span class="bg-secondary/10 p-2 rounded-md text-center">Void Shaman</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const apiKey = "";
+        const apiUrlBase = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+
+        // --- Data Global ---
+
+        const CHARACTER_DATA = [
+            { id: 1, name: "Kaelen, Sang Dragon Slayer", role: "Warrior", tags: ["Tank", "Melee DPS"], complexity: 5, bg: "Kaelen adalah veteran dari Perang Utara. Ia dikenal karena memimpin barisan terdepan dan memiliki kekuatan fisik yang tak tertandingi. Ia memegang Job Legendary 'Godslayer'." },
+            { id: 2, name: "Elara, The Phantom Dancer", role: "Stealth", tags: ["High DPS", "Mobility"], complexity: 4, bg: "Seorang pembunuh bayangan dari Benua Timur. Ia dapat mengelabui realita dan musuhnya. Elara adalah representasi dari Job Legendary 'Phantom Dancer'." },
+            { id: 3, name: "Lyra, Celestial Arcanist", role: "Magic", tags: ["AOE", "Utility"], complexity: 5, bg: "Penyihir legendaris yang menguasai sihir waktu dan dimensi. Lyra adalah salah satu dari sedikit yang mencapai Job 'Celestial Arcanist' dan berperan sebagai penjaga Spire." },
+            { id: 4, name: "Orin, Saint of Aether", role: "Support", tags: ["Healer", "Crowd Control"], complexity: 3, bg: "Seorang pendeta agung yang memiliki kekuatan penyelamatan massal. Orin adalah simbol harapan dan memimpin aliansi penyembuh di Barat." },
+            { id: 5, name: "Zenith, The Shadow Caster", role: "Hybrid", tags: ["Melee", "Magic DPS"], complexity: 4, bg: "Seorang Hybrid Class langka yang menggabungkan kecepatan Assassin dan sihir bayangan. Zenith adalah anggota Guild yang paling dicari untuk misi rahasia." }
+        ];
+
+        const JOB_EVOLUTIONS = [
+            { tier: 'Warrior', color: 'red-600', classes: ['Fighter', 'Knight', 'Berserker', 'Lancer'], advanced: ['Crusader', 'Warlord', 'Royal Guardian', 'Warmaster'], master: ['Aegis Champion', 'Blood Titan'], legendary: ['Eclipse Vanguard', 'Godslayer'] },
+            { tier: 'Rogue', color: 'blue-500', classes: ['Thief', 'Assassin', 'Ranger', 'Shinobi'], advanced: ['Ghostwalker', 'Dread Reaper', 'Storm Sniper', 'Silent Tempest'], master: ['Void Stalker', 'Eagle Eye Marksman'], legendary: ['Shadow Emperor', 'Moon Phantom'] },
+            { tier: 'Mage', color: 'purple-600', classes: ['Mage', 'Elementalist', 'Necromancer', 'Onmyoji'], advanced: ['Arcane Scholar', 'Void Sorcerer', 'Celestial Sage', 'Flame Monarch'], master: ['Time Weaver', 'Lich King', 'Starcaller'], legendary: ['Eternal Archmage', 'Void Sovereign'] },
+            { tier: 'Priest/Support', color: 'green-600', classes: ['Cleric', 'Alchemist', 'Druid', 'Seer'], advanced: ['Divine Guardian', 'Toxic Sage', 'Nature’s Prophet', 'Celestial Oracle'], master: ['Seraphim Priest', 'Venom Wraith'], legendary: ['Ascended Archangel', 'Harbinger of Plague'] }
+        ];
+
+        const RANK_DATA = [
+            { rank: 'SS-Rank', strength: 100, color: '#FFD700', title: 'Legenda Absolut', desc: 'Individu luar biasa yang kekuatannya bisa mengubah sejarah dunia. Otoritasnya melampaui Grand Guildmaster dalam lingkup spiritual dan politik. Mereka adalah manifestasi kekuatan epik.', access: 'Misi Rahasia Global, Penguasaan Spire.' },
+            { rank: 'S-Rank', strength: 90, color: '#C0C0C0', title: 'Legenda Hidup', desc: 'Memiliki otoritas setara dengan bangsawan atau jenderal. Mereka adalah mercusuar bagi petualang lain dan sering diminta oleh High Council.', access: 'Misi Kontrak Pemerintah, Misi Area Terlarang.' },
+            { rank: 'A-Rank', strength: 80, color: '#CD7F32', title: 'Elit Petualang', desc: 'Diizinkan menjelajahi *dungeon* dan area terlarang. Mereka memiliki akses ke sumber daya unik dan kontrak bernilai tinggi.', access: 'Eksplorasi Dungeon Utama, Kontrak Artefak.' },
+            { rank: 'B-Rank', strength: 70, color: '#4CAF50', title: 'Kelas Tinggi', desc: 'Dapat mengambil kontrak kerajaan dan menangani monster kelas tinggi. Mereka membentuk tulang punggung operasi guild besar.', access: 'Kontrak Kerajaan, Perburuan Monster Kelas A.' },
+            { rank: 'C-Rank', strength: 60, color: '#2196F3', title: 'Profesional', desc: 'Peringkat profesional, dapat mengambil misi berbahaya di luar kota. Mereka sudah mandiri dan menguasai *Advanced Class*.', access: 'Misi Ekspedisi Jarak Jauh, Tugas Pertahanan Kota.' },
+            { rank: 'D-Rank', strength: 40, color: '#FFEB3B', title: 'Menengah', desc: 'Diizinkan mengambil misi pertahanan kota dan berburu monster kecil. Misi mereka fokus pada keamanan regional.', access: 'Misi Pertahanan Kota, Perburuan Monster Kecil.' },
+            { rank: 'E-Rank', strength: 20, color: '#FF9800', title: 'Berpengalaman Dasar', desc: 'Sudah berpengalaman dalam misi dasar. Mereka mulai membangun reputasi dan spesialisasi job mereka.', access: 'Misi Bantuan Pedesaan, Tugas Pengumpulan.' },
+            { rank: 'F-Rank', strength: 10, color: '#F44336', title: 'Pemula', desc: 'Hanya boleh menerima misi berbahaya rendah. Tahap pengenalan pada dunia petualangan dan kode etik guild.', access: 'Misi Kurir, Pembersihan Monster Area Aman.' }
+        ].reverse(); // Urutan F ke SS
+
+        // --- Inisialisasi Chart.js ---
+        let rankChart, hybridChart;
+
+        function wrapLabels(label) {
+            if (label.length > 16) {
+                return label.split(' ').reduce((arr, word) => {
+                    const last = arr[arr.length - 1];
+                    if (last && (last + ' ' + word).length < 16) {
+                        arr[arr.length - 1] = last + ' ' + word;
+                    } else {
+                        arr.push(word);
+                    }
+                    return arr;
+                }, []);
+            }
+            return label;
+        }
+
+        function initCharts() {
+            // Chart Rank Guild
+            const ctxRank = document.getElementById('rank-chart');
+            if (ctxRank) {
+                rankChart = new Chart(ctxRank, {
+                    type: 'bar',
+                    data: {
+                        labels: RANK_DATA.map(d => d.rank),
+                        datasets: [{
+                            label: 'Otoritas (%)',
+                            data: RANK_DATA.map(d => d.strength),
+                            backgroundColor: RANK_DATA.map(d => d.color),
+                            borderColor: RANK_DATA.map(d => d.color),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    title: (context) => `Rank: ${context[0].label}`,
+                                    afterBody: (context) => RANK_DATA.find(d => d.rank === context[0].label).title
+                                }
+                            }
+                        },
+                        scales: {
+                            // FIX: Menambahkan min: 0 dan stepSize untuk menstabilkan perhitungan tick
+                            // yang rentan RangeError pada locale non-Inggris/US.
+                            x: {
+                                min: 0, 
+                                max: 100,
+                                ticks: { 
+                                    display: false,
+                                    stepSize: 20 
+                                }
+                            },
+                            y: { grid: { display: false } }
+                        },
+                        onClick: (e, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                updateRankDetail(RANK_DATA[index]);
+                            }
+                        }
+                    }
+                });
+                // Tampilkan detail SS-Rank secara default
+                updateRankDetail(RANK_DATA[RANK_DATA.length - 1]);
+            }
+
+            // Chart Hybrid Resource
+            const ctxHybrid = document.getElementById('hybrid-chart');
+            if (ctxHybrid) {
+                hybridChart = new Chart(ctxHybrid, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Stamina (Fisik)', 'Mana (Sihir)', 'Arcane Gauge (Burst)', 'Focus (Presisi)'],
+                        datasets: [{
+                            label: 'Kebutuhan Sumber Daya Hybrid',
+                            data: [80, 70, 90, 85],
+                            backgroundColor: 'rgba(184, 115, 51, 0.4)', // var(--color-accent) with alpha
+                            borderColor: 'var(--color-accent)',
+                            pointBackgroundColor: 'var(--color-accent)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'var(--color-accent)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'bottom', labels: { color: 'var(--color-primary)' } },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => `${context.label}: ${context.raw}%`
+                                }
+                            }
+                        },
+                        scales: {
+                            r: {
+                                angleLines: { color: 'var(--color-secondary)' },
+                                grid: { color: 'var(--color-secondary)' },
+                                pointLabels: { color: 'var(--color-primary)', font: { size: 12 } },
+                                // FIX: Mengganti suggestedMin/Max ke min/max dan menambahkan stepSize
+                                // untuk menstabilkan perhitungan tick, menghindari RangeError.
+                                min: 0,
+                                max: 100,
+                                ticks: { 
+                                    display: false,
+                                    stepSize: 25 // Added stepSize for stability
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateRankDetail(data) {
+            document.getElementById('rank-detail-title').textContent = `${data.rank}: ${data.title}`;
+            document.getElementById('rank-detail-description').textContent = data.desc;
+            document.getElementById('rank-detail-access').textContent = `Akses Misi: ${data.access}`;
+        }
+
+        // --- Logika Navigasi & Rendering ---
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            if (tabId === 'guild' && rankChart) {
+                rankChart.resize();
+            }
+            if (tabId === 'tempur' && hybridChart) {
+                hybridChart.resize();
+            }
+        }
+
+        function renderCharacterCards() {
+            const container = document.getElementById('character-cards-container');
+            container.innerHTML = CHARACTER_DATA.map(char => `
+                <div class="card-panel rounded-lg p-6 flex flex-col items-center text-center job-evolution-card">
+                    <h3 class="text-2xl font-bold mb-2" style="color: var(--color-accent);">${char.name}</h3>
+                    <p class="text-xs mb-3 font-mono text-gray-600">ID: ${char.id.toString().padStart(4, '0')}</p>
+                    <div class="mb-4">
+                        <span class="role-tag role-${char.role.toLowerCase().replace(/ /g, '-')}">${char.role.toUpperCase()}</span>
+                        ${char.tags.map(tag => `<span class="role-tag bg-gray-200 text-gray-700">${tag}</span>`).join('')}
+                    </div>
+                    <div class="mb-4 text-xl">
+                        ${'⭐'.repeat(char.complexity)}${'☆'.repeat(5 - char.complexity)}
+                    </div>
+                    <p class="text-sm italic">${char.bg}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderJobEvolutionCards() {
+            const container = document.getElementById('job-evolution-cards');
+            container.innerHTML = JOB_EVOLUTIONS.map(job => `
+                <div class="card-panel rounded-lg p-4 job-evolution-card">
+                    <h4 class="text-xl font-bold mb-2 text-${job.color}">${job.tier} Class</h4>
+                    <p class="text-xs mb-3 text-secondary/80">Jalur Evolusi Utama</p>
+                    <div class="space-y-1 text-sm">
+                        <p><strong>Basic:</strong> ${job.classes.join(', ')}</p>
+                        <p><strong>Advanced:</strong> ${job.advanced.join(', ')}</p>
+                        <p><strong>Master:</strong> ${job.master.join(', ')}</p>
+                        <p><strong>Legendary:</strong> ${job.legendary.join(', ')}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // --- Gemini Functions ---
+
+        async function fetchGemini(prompt, systemPrompt, targetElementId, loadingElementId) {
+            const resultDiv = document.getElementById(targetElementId);
+            const loadingDiv = document.getElementById(loadingElementId);
+            resultDiv.classList.add('hidden');
+            resultDiv.innerHTML = '';
+            loadingDiv.classList.remove('hidden');
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            const apiUrl = apiUrlBase + apiKey;
+            let response, result;
+            const maxRetries = 3;
+            let delay = 1000;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        result = await response.json();
+                        break;
+                    } else if (response.status === 429) {
+                        if (i < maxRetries - 1) {
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            delay *= 2;
+                            continue;
+                        }
+                    }
+                    throw new Error(`API returned status ${response.status}`);
+
+                } catch (error) {
+                    if (i === maxRetries - 1) {
+                        console.error("Gemini API Error:", error);
+                        resultDiv.innerHTML = `<p class="text-red-600">Error: Gagal terhubung ke Gemini API setelah beberapa kali mencoba. Cek koneksi Anda atau coba lagi nanti.</p>`;
+                        resultDiv.classList.remove('hidden');
+                        loadingDiv.classList.add('hidden');
+                        return;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+
+            loadingDiv.classList.add('hidden');
+
+            const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+                resultDiv.innerHTML = `<p class="whitespace-pre-wrap">${text}</p>`;
+                resultDiv.classList.remove('hidden');
+            } else {
+                resultDiv.innerHTML = `<p class="text-red-600">Error: Gemini tidak menghasilkan teks. Mungkin prompt terlalu spesifik atau ada masalah koneksi.</p>`;
+                resultDiv.classList.remove('hidden');
+            }
+        }
+
+        async function generateLore() {
+            const continent = document.getElementById('spire-continent-select').value;
+            const prompt = `Ciptakan deskripsi mitologis dan misterius yang padat untuk salah satu Spire kuno yang terletak di ${continent} Benua Varethia. Jelaskan arsitekturnya, tujuan awalnya, dan rumor atau misteri yang mengelilinginya (maksimal 150 kata).`;
+            const systemPrompt = "Anda adalah Ahli Lore Varethia. Berikan respon yang singkat, misterius, dan dramatis dalam Bahasa Indonesia.";
+            
+            await fetchGemini(prompt, systemPrompt, 'spire-result', 'loading-spire');
+        }
+
+        async function generateTrial() {
+            const basicJob = document.getElementById('trial-basic-select').value;
+            const targetJob = document.getElementById('trial-target-select').value;
+            const prompt = `Buatkan Ujian Evolusi Job (Quest Trial) yang relevan dan menantang untuk seorang petualang yang berevolusi dari Basic Class: ${basicJob} ke Target Class: ${targetJob}. Deskripsikan lokasi ujian, tantangan utama (mekanika), dan hadiah suksesnya (maksimal 180 kata).`;
+            const systemPrompt = "Anda adalah perancang Misi Guildmaster yang kejam namun adil. Berikan respon dalam format misi yang jelas (Judul, Lokasi, Tantangan, Syarat Kelulusan) dalam Bahasa Indonesia.";
+            
+            await fetchGemini(prompt, systemPrompt, 'trial-result', 'loading-trial');
+        }
+
+        // --- Event Listeners dan Initial Load ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup Navigasi
+            document.getElementById('tab-navigation').addEventListener('click', (e) => {
+                if (e.target.matches('.tab-button')) {
+                    const tabId = e.target.dataset.tab;
+                    showTab(tabId);
+                }
+            });
+
+            // Setup Chart.js
+            initCharts();
+
+            // Setup Konten Dinamis
+            renderCharacterCards();
+            renderJobEvolutionCards();
+            
+            // Setup Toggle Sistem Tempur
+            document.getElementById('toggle-mentor').addEventListener('click', () => {
+                document.getElementById('learning-detail').innerHTML = `<h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">Jalur Mentor (Akademi/Guru)</h4><p>Pembelajaran bertahap, aman, dan terstruktur. Mengurangi risiko kegilaan atau cedera sihir. Namun, perkembangan *skill* dibatasi oleh pengetahuan mentor. </p>`;
+            });
+            document.getElementById('toggle-codex').addEventListener('click', () => {
+                document.getElementById('learning-detail').innerHTML = `<h4 class="font-bold text-lg mb-1" style="color: var(--color-accent);">Jalur Codex of Arcana (COA)</h4><p>Mengambil pengetahuan dari artefak sihir kuno. Perkembangan sangat cepat dan kuat, tetapi memiliki risiko tinggi menyebabkan *Arcane Madness* atau kerusakan fisik permanen. Hanya untuk yang berani.</p>`;
+            });
+
+            // Setup Gemini Buttons
+            document.getElementById('generate-spire-btn').addEventListener('click', generateLore);
+            document.getElementById('generate-trial-btn').addEventListener('click', generateTrial);
+
+            // Default view (Karakter Utama)
+            showTab('karakter');
+        });
+    </script>
+</body>
+</html>
